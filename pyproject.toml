@@ -1,0 +1,10 @@
+[project]
+name = "trustmebro-backend"
+version = "0.1.0"
+description = "Generate a PDF certificate to prove anything with a QR code validation."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "qrcode>=8.2",
+    "reportlab>=4.4.1",
+]
