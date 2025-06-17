@@ -13,14 +13,58 @@ right corner of the page.
 The certificate is generated using the ReportLab library.
 """
 
-from api.cert_generator import TrustMeBroCertificate
-from datetime import datetime
+from core.cert_generator import TrustMeBroCertificate
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
+class Certificate(BaseModel):
+    cert_type: str
+    recipient: str
+    item_to_prove: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "cert_type": "achievment",
+                    "recipient": "John Doe",
+                    "item_to_prove": "killed the Dead Sea",
+                },
+                {
+                    "cert_type": "completion",
+                    "recipient": "John Doe",
+                    "item_to_prove": "endless lessons",
+                },
+                {
+                    "cert_type": "ownership",
+                    "recipient": "John Doe",
+                    "item_to_prove": "the dark side of the moon",
+                },
+            ]
+        }
+    }
+
+app = FastAPI()
+
+@app.get("/")
+async def root():
+    return {"message": "pong"}
+
+@app.post("/certificate")
+async def generate_certificate(data: Certificate):
+    certificate_generator = TrustMeBroCertificate("test")
+    return certificate_generator.create_certificate(data.cert_type, data.recipient, data.item_to_prove)
+
+
+@app.get("/certificate/{cert_validation_number}")
+async def download_certificate(cert_validation_number: str):
+    headers = {
+        f"Content-Disposition": "inline; filename={cert_validation_number}.pdf"
+    }
+    return FileResponse(f"assets/certs/{cert_validation_number}.pdf", media_type="application/pdf", headers=headers)
 
 if __name__ == "__main__":
-    recipient = "John Doe"
-    course = "Python Programming Masterclass"
-    date = datetime.now().strftime("%B %d, %Y")
+    import uvicorn
 
-    certificate_generator = TrustMeBroCertificate("test")
-    certificate_generator.create_certificate(recipient, course, date, "certificate.pdf")
+    uvicorn.run(app, host="0.0.0.0", port=8080)

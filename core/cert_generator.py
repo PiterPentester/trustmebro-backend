@@ -2,6 +2,7 @@ import qrcode
 import io
 import random
 import os
+import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm, mm
@@ -24,16 +25,17 @@ class TrustMeBroCertificate:
         items = [f for f in os.listdir(items_dir) if f.endswith(".png")]
         return os.path.join(items_dir, random.choice(items))
 
-    def generate_validation_number(self, recipient_name, item_to_prove, date):
+    def generate_validation_number(self, recipient_name, item_to_prove):
         import hashlib
+        import datetime
         """
-        Generate a validation number based on recipient's name, item to prove, and date.
+        Generate a validation number based on recipient's name, item to prove, and current date.
 
         Returns:
             str: The generated validation number.
         """
         h = hashlib.new('sha256')
-        h.update(recipient_name.encode('utf-8') + item_to_prove.encode('utf-8') + date.encode('utf-8'))
+        h.update(recipient_name.encode('utf-8') + item_to_prove.encode('utf-8') + datetime.datetime.now().isoformat().encode('utf-8'))
         return h.hexdigest()
     
     def generate_qr_link(self, validation_number):
@@ -46,13 +48,24 @@ class TrustMeBroCertificate:
         Returns:
             str: The generated QR code link.
         """
-        return f"https://example.com/validate/{validation_number}"
+        return f"https://localhost:8080/validate/{validation_number}"
     
     def generate_cert_data(self, cert_type):
-        pass
-        
+        match cert_type.lower():
+            case "achievment":
+                title = "Certificate of Achievement"
+                helper = "has successfully"
+            case "completion":
+                title = "Certificate of Completion"
+                helper = "has completed"
+            case "ownership":
+                title = "Certificate of Ownership"
+                helper = "is the owner of"
+            case _:
+                raise ValueError("Invalid cert type")
+        return title, helper
 
-    def create_certificate(self, recipient_name, item_to_prove, date, output_filename):
+    def create_certificate(self, cert_type, recipient_name, item_to_prove):
         """
         Generate a PDF certificate of achievement with a QR code and logo.
 
@@ -60,13 +73,9 @@ class TrustMeBroCertificate:
             recipient_name (str): The recipient's name.
             item_to_prove (str): The item to prove.
             date (str): The date awarded.
-            output_filename (str): The filename of the output PDF.
             qr_link (str, optional): The URL where the certificate can be verified.
         """
 
-        # Create PDF document in landscape
-        doc = SimpleDocTemplate(output_filename, pagesize=(A4[1], A4[0]), rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
-        
         # Define styles
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
@@ -112,7 +121,6 @@ class TrustMeBroCertificate:
         # Add logo
         try:
             logo_img = self.select_random_image("badges")
-            print(logo_img)
             logo = Image(logo_img, width=3*cm, height=3*cm)
             logo.hAlign = 'CENTER'
             elements.append(logo)
@@ -122,21 +130,22 @@ class TrustMeBroCertificate:
             elements.append(Spacer(1, 1*cm))
         
         # Certificate title
-        elements.append(Paragraph("Certificate of Achievement", title_style))
+        title, helper = self.generate_cert_data(cert_type)
+        elements.append(Paragraph(title, title_style))
         elements.append(Spacer(1, 0.5*cm))
         
         # Recipient and course details
         elements.append(Paragraph("This certifies that", subtitle_style))
         elements.append(Paragraph(recipient_name, title_style))
-        elements.append(Paragraph("has successfully completed", body_style))
+        # Certificate body type
+        elements.append(Paragraph(helper, body_style))
         elements.append(Paragraph(item_to_prove, subtitle_style))
         elements.append(Spacer(1, 0.5*cm))
-        elements.append(Paragraph(f"Awarded on {date}", body_style))
+        elements.append(Paragraph(f"Issued on {datetime.datetime.now().strftime('%B %d, %Y')}", body_style))
         elements.append(Spacer(1, 0.5*cm))
         
         # Add Signature 
         signature_img = self.select_random_image("signatures")
-        print(signature_img)
         signature = Image(signature_img, width=(65.5*2)*mm, height=(5.7*2)*mm)
         elements.append(signature)
         signature.hAlign = 'LEFT'
@@ -145,8 +154,8 @@ class TrustMeBroCertificate:
         elements.append(signature_title)
 
         # Add cert validation number
-        cert_num = self.generate_validation_number(recipient_name, item_to_prove, date)
-        validate = Paragraph(f"Certificate Number: {cert_num}", body_style)
+        cert_num = self.generate_validation_number(recipient_name, item_to_prove)
+        validate = Paragraph(f"Certificate Validation Number: {cert_num}", body_style)
 
         # Add QR code link
         qr_link = self.generate_qr_link(cert_num)
@@ -188,5 +197,10 @@ class TrustMeBroCertificate:
             canvas.rect(margin, margin, A4[1]-2*margin, A4[0]-2*margin)
             canvas.restoreState()
         
+        # Create PDF document in landscape
+        doc = SimpleDocTemplate(f"assets/certs/{cert_num}.pdf", pagesize=(A4[1], A4[0]), rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+        
         # Build the PDF
         doc.build(elements, onFirstPage=draw_border, onLaterPages=draw_border)
+        
+        return cert_num
