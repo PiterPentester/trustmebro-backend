@@ -12,6 +12,3 @@ COPY core ./core
 
 EXPOSE 8080
 CMD ["uv", "run", "main.py"]
-
-
-
