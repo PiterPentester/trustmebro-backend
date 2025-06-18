@@ -3,6 +3,8 @@ import io
 import random
 import os
 import datetime
+import json
+import redis
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm, mm
@@ -11,8 +13,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 class TrustMeBroCertificate:
-    def __init__(self, DB):
-        self.DB = DB
+    def __init__(self, redis_url, app_url):
+        self.redis_url = redis_url
+        self.app_url = app_url
 
     def select_random_image(self, items):
         """
@@ -48,7 +51,7 @@ class TrustMeBroCertificate:
         Returns:
             str: The generated QR code link.
         """
-        return f"https://localhost:8080/validate/{validation_number}"
+        return f"{self.app_url}/validate/{validation_number}"
     
     def generate_cert_data(self, cert_type):
         match cert_type.lower():
@@ -141,7 +144,8 @@ class TrustMeBroCertificate:
         elements.append(Paragraph(helper, body_style))
         elements.append(Paragraph(item_to_prove, subtitle_style))
         elements.append(Spacer(1, 0.5*cm))
-        elements.append(Paragraph(f"Issued on {datetime.datetime.now().strftime('%B %d, %Y')}", body_style))
+        issued_on = datetime.datetime.now().strftime('%B %d, %Y')
+        elements.append(Paragraph(f"Issued on {issued_on}", body_style))
         elements.append(Spacer(1, 0.5*cm))
         
         # Add Signature 
@@ -156,6 +160,16 @@ class TrustMeBroCertificate:
         # Add cert validation number
         cert_num = self.generate_validation_number(recipient_name, item_to_prove)
         validate = Paragraph(f"Certificate Validation Number: {cert_num}", body_style)
+
+        # Store cert data in Redis database
+        redis_client = redis.Redis(host=self.redis_url, port=6379, db=0)
+        cert_validation_data = {
+            "recipient_name": recipient_name,
+            "cert_type": cert_type,
+            "item_to_prove": item_to_prove,
+            "issued_on": issued_on
+        }
+        redis_client.set(cert_num, json.dumps(cert_validation_data), ex=60*60*24*30*12) # valid for ~1 year (in seconds)
 
         # Add QR code link
         qr_link = self.generate_qr_link(cert_num)

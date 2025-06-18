@@ -14,6 +14,8 @@ The certificate is generated using the ReportLab library.
 """
 
 from core.cert_generator import TrustMeBroCertificate
+from core.cert_validator import Validator
+import os
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -51,20 +53,26 @@ app = FastAPI()
 async def root():
     return {"message": "pong"}
 
-@app.post("/certificate")
+@app.post("/generate")
 async def generate_certificate(data: Certificate):
-    certificate_generator = TrustMeBroCertificate("test")
     return certificate_generator.create_certificate(data.cert_type, data.recipient, data.item_to_prove)
 
-
-@app.get("/certificate/{cert_validation_number}")
+@app.get("/download/{cert_validation_number}")
 async def download_certificate(cert_validation_number: str):
     headers = {
         f"Content-Disposition": "inline; filename={cert_validation_number}.pdf"
     }
     return FileResponse(f"assets/certs/{cert_validation_number}.pdf", media_type="application/pdf", headers=headers)
 
+@app.get("/validate/{cert_validation_number}")
+async def validate_certificate(cert_validation_number: str):
+    return validator.validate(cert_validation_number)
+
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    REDIS_URL = os.environ.get("REDIS_URL", "localhost")
+    APP_PORT = os.environ.get("APP_PORT", "8080")
+    APP_URL = os.environ.get("APP_URL", f"http://localhost:{APP_PORT}")
+    certificate_generator = TrustMeBroCertificate(REDIS_URL, APP_URL)
+    validator = Validator(REDIS_URL, APP_URL)
+    uvicorn.run(app, host="0.0.0.0", port=int(APP_PORT))
