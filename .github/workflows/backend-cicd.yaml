@@ -2,9 +2,9 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
 
 env:
   REGISTRY: ghcr.io
@@ -45,11 +45,14 @@ jobs:
 
       - name: Build and Push Docker image
         run: |
+          # Lowercase the repository owner
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          
           make build IMAGE_TAG=sha-${{ github.sha }}
-          make push REGISTRY=${{ env.REGISTRY }}/${{ github.repository_owner }} IMAGE_TAG=sha-${{ github.sha }}
+          make push REGISTRY=${{ env.REGISTRY }}/$OWNER IMAGE_TAG=sha-${{ github.sha }}
           
           # Also push latest if on main
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             make build IMAGE_TAG=latest
-            make push REGISTRY=${{ env.REGISTRY }}/${{ github.repository_owner }} IMAGE_TAG=latest
+            make push REGISTRY=${{ env.REGISTRY }}/$OWNER IMAGE_TAG=latest
           fi
