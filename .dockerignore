@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+.venv
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# IDE
+.vscode
+.idea
+.DS_Store
+
+# Project specific
+tests/
+k8s/
+dockercompose.yaml
+Makefile
+README.md
+bandit-report.json
+grype-report.json

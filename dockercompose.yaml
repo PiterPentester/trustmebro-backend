@@ -2,7 +2,7 @@ name: trustmebro-back
 
 services:
   trustmebro-back:
-    image: trustmebro-back:v0.3.0
+    image: trustmebro-back
     build:
       context: .
       dockerfile: Dockerfile
@@ -17,7 +17,4 @@ services:
     image: redis
     ports:
       - 6379:6379
-
   
-
-    

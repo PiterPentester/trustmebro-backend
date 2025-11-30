@@ -13,12 +13,23 @@ right corner of the page.
 The certificate is generated using the ReportLab library.
 """
 
+import os
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from core.cert_generator import TrustMeBroCertificate
 from core.cert_validator import Validator
-import os
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pathlib import Path
+
+# Configuration
+REDIS_URL = os.getenv("REDIS_URL", "localhost")
+APP_URL = os.getenv("APP_URL", "http://localhost:8080")
+
+# Initialize the certificate generator and validator
+certificate_generator = TrustMeBroCertificate(redis_url=REDIS_URL, app_url=APP_URL)
+validator = Validator(redis_host=REDIS_URL, base_url=APP_URL)
+
 
 class Certificate(BaseModel):
     cert_type: str
@@ -29,7 +40,7 @@ class Certificate(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "cert_type": "achievment",
+                    "cert_type": "achievement",
                     "recipient": "John Doe",
                     "item_to_prove": "killed the Dead Sea",
                 },
@@ -47,29 +58,115 @@ class Certificate(BaseModel):
         }
     }
 
+
 app = FastAPI()
+
+# Update origins to include common frontend development URLs
+origins = [
+    "http://localhost:3000",  # Common React dev server
+    "http://127.0.0.1:3000",  # Alternative localhost
+    "http://localhost:8080",  # Common alternative port
+    "http://127.0.0.1:8080",  # Alternative localhost
+    "*",  # Fallback for all origins (not recommended for production)
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],  # Be explicit about allowed methods
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "Accept",
+    ],  # Be explicit about allowed headers
+    expose_headers=["Content-Disposition"],  # Important for file downloads
+)
+
 
 @app.get("/")
 async def root():
     return {"message": "pong"}
 
+
 @app.post("/generate")
 async def generate_certificate(data: Certificate):
-    return certificate_generator.create_certificate(data.cert_type, data.recipient, data.item_to_prove)
+    """
+    Generate a new certificate.
+
+    Args:
+        data: Certificate data including type, recipient, and item to prove
+
+    Returns:
+        dict: Contains the validation number for the generated certificate
+    """
+    try:
+        validation_number = certificate_generator.create_certificate(
+            data.cert_type, data.recipient, data.item_to_prove
+        )
+        return {"validation_number": validation_number}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/download/{cert_validation_number}")
 async def download_certificate(cert_validation_number: str):
-    headers = {
-        f"Content-Disposition": "inline; filename={cert_validation_number}.pdf"
-    }
-    return FileResponse(f"assets/certs/{cert_validation_number}.pdf", media_type="application/pdf", headers=headers)
+    file_path = Path(f"assets/certs/{cert_validation_number}.pdf")
+
+    # Check if the file exists
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Function to stream file content
+    def iterfile():
+        with open(file_path, "rb") as file:
+            yield from file
+        # Delete the file after streaming
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Error deleting file {file_path}: {e}")
+
+    # Return the file as a streaming response
+    return StreamingResponse(
+        iterfile(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={cert_validation_number}.pdf"
+        },
+    )
+
 
 @app.get("/validate/{cert_validation_number}")
 async def validate_certificate(cert_validation_number: str):
-    return validator.validate(cert_validation_number)
+    """
+    Validate a certificate by its validation number.
+
+    Args:
+        cert_validation_number: The validation number to check
+
+    Returns:
+        dict: A dictionary with validation result and certificate data if valid
+    """
+    try:
+        is_valid, result = validator.validate(cert_validation_number)
+        if is_valid:
+            return {"valid": True, "certificate": result}
+        else:
+            return {
+                "valid": False,
+                "error": result.get("error", "Invalid certificate"),
+                "certificate": None,
+            }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error validating certificate: {str(e)}"
+        )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     REDIS_URL = os.environ.get("REDIS_URL", "localhost")
     APP_PORT = os.environ.get("APP_PORT", "8080")
     APP_URL = os.environ.get("APP_URL", f"http://localhost:{APP_PORT}")
