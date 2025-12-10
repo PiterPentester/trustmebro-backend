@@ -47,7 +47,7 @@ test:
 # Build Docker image
 build:
 	@echo "Building Docker image: $(IMAGE_NAME):$(IMAGE_TAG)..."
-	@docker buildx build --platform linux/amd64,linux/arm64 -t $(IMAGE_NAME):$(IMAGE_TAG) .
+	@docker buildx build --platform linux/amd64,linux/arm64 -t $(IMAGE_NAME):$(IMAGE_TAG) --load .
 	@echo "✓ Docker image built successfully"
 
 # Scan Docker image for vulnerabilities using grype
