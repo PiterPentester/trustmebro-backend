@@ -5,6 +5,12 @@ on:
     branches: [ "main", "dev" ]
   pull_request:
     branches: [ "main", "dev" ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        type: string
+        default: "dev"
 
 env:
   REGISTRY: ghcr.io
