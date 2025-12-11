@@ -47,15 +47,14 @@ test:
 # Build Docker image
 build:
 	@echo "Building Docker image: $(IMAGE_NAME):$(IMAGE_TAG)..."
-	@docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
+	@docker buildx build --platform linux/amd64,linux/arm64 -t $(IMAGE_NAME):$(IMAGE_TAG) --load .
 	@echo "✓ Docker image built successfully"
 
 # Scan Docker image for vulnerabilities using grype
 scan-image:
 	@echo "Scanning Docker image for vulnerabilities with grype..."
-	@grype $(IMAGE_NAME):$(IMAGE_TAG) -o json --file grype-report.json || true
 	@grype $(IMAGE_NAME):$(IMAGE_TAG)
-	@echo "✓ Image scan completed (report saved to grype-report.json)"
+	@echo "✓ Image scan completed"
 
 # Push Docker image to registry
 push:
