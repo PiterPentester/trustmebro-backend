@@ -7,10 +7,11 @@ on:
     branches: [ "main", "dev" ]
   workflow_dispatch:
     inputs:
-      environment:
-        required: true
-        type: string
-        default: "dev"
+      push_image:
+        description: 'Push the Docker image?'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
   REGISTRY: ghcr.io
@@ -61,9 +62,9 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.ref == 'refs/heads/main' }}
+          push: ${{ github.event.inputs.push_image == 'true' || github.ref == 'refs/heads/main' }}
           tags: |
             ${{ env.REGISTRY }}/piterpentester/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-            ${{ github.ref == 'refs/heads/main' && format('{0}/{1}/{2}:latest', env.REGISTRY, 'piterpentester', env.IMAGE_NAME) || '' }}
+            ${{ github.event.inputs.push_image == 'true' || github.ref == 'refs/heads/main' && format('{0}/{1}/{2}:latest', env.REGISTRY, 'piterpentester', env.IMAGE_NAME) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
