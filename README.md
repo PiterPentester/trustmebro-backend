@@ -93,6 +93,8 @@ make test
 
 The application is containerized and ready for Kubernetes deployment.
 
+### Docker
+
 ```bash
 # Build the image
 make build
@@ -100,6 +102,24 @@ make build
 # Scan image for vulnerabilities
 make scan-image
 ```
+
+### Kubernetes
+
+You can deploy the application to a Kubernetes cluster using the provided manifests.
+
+```bash
+# Deploy to Kubernetes
+make deploy
+
+# Remove from Kubernetes
+make undeploy
+```
+
+The deployment includes:
+- Backend Deployment (Replicas: 2)
+- Redis Deployment
+- Services for Backend and Redis
+- Ingress with TLS (Cert-Manager)
 
 ## 📝 License
 
