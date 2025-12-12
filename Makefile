@@ -84,6 +84,18 @@ clean:
 	@docker-compose -f dockercompose.yaml down -v 2>/dev/null || true
 	@echo "✓ Cleanup completed"
 
+# Deploy to Kubernetes
+deploy:
+	@echo "Deploying to Kubernetes..."
+	@kubectl apply -f k8s/
+	@echo "✓ Deployed to Kubernetes"
+
+# Undeploy from Kubernetes
+undeploy:
+	@echo "Undeploying from Kubernetes..."
+	@kubectl delete -f k8s/
+	@echo "✓ Undeployed from Kubernetes"
+
 # Run all quality checks and build
-all: format lint scan-security test build scan-image
+all: format lint scan-security test build scan-image deploy
 	@echo "✓ All checks and build completed successfully"
