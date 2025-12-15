@@ -14,7 +14,7 @@ The certificate is generated using the ReportLab library.
 """
 
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -61,6 +61,8 @@ class Certificate(BaseModel):
 
 app = FastAPI()
 
+router = APIRouter(prefix="/api")
+
 # Update origins to include common frontend development URLs
 origins = [
     "http://localhost:3000",  # Common React dev server
@@ -84,12 +86,12 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@router.get("/")
 async def root():
     return {"message": "pong"}
 
 
-@app.post("/generate")
+@router.post("/generate")
 async def generate_certificate(data: Certificate):
     """
     Generate a new certificate.
@@ -109,7 +111,7 @@ async def generate_certificate(data: Certificate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/download/{cert_validation_number}")
+@router.get("/download/{cert_validation_number}")
 async def download_certificate(cert_validation_number: str):
     file_path = Path(f"assets/certs/{cert_validation_number}.pdf")
 
@@ -137,7 +139,7 @@ async def download_certificate(cert_validation_number: str):
     )
 
 
-@app.get("/validate/{cert_validation_number}")
+@router.get("/validate/{cert_validation_number}")
 async def validate_certificate(cert_validation_number: str):
     """
     Validate a certificate by its validation number.
@@ -162,6 +164,9 @@ async def validate_certificate(cert_validation_number: str):
         raise HTTPException(
             status_code=500, detail=f"Error validating certificate: {str(e)}"
         )
+
+
+app.include_router(router)
 
 
 if __name__ == "__main__":
