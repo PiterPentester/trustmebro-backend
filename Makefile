@@ -67,7 +67,7 @@ push:
 # Run application using docker-compose
 run-compose:
 	@echo "Starting services with docker-compose..."
-	@docker-compose -f dockercompose.yaml up -d
+	@docker-compose -f dockercompose.yaml up -d --build
 	@echo "✓ Services started successfully"
 	@echo "Backend available at: http://localhost:8080"
 
