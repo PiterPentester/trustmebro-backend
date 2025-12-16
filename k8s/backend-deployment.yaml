@@ -35,11 +35,11 @@ spec:
           protocol: TCP
         env:
         - name: REDIS_URL
-          value: "redis:6379"
+          value: "redis"
         - name: APP_URL
-          value: "http://backend:8080"
+          value: "https://trustmebro.misseddeadlines.dpdns.org"
         - name: FRONTEND_URL
-          value: "http://frontend"
+          value: "https://trustmebro.misseddeadlines.dpdns.org"
         - name: ENVIRONMENT
           value: "production"
         resources:
@@ -49,22 +49,6 @@ spec:
           limits:
             cpu: "500m"
             memory: "256Mi"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: http
-          initialDelaySeconds: 10
-          periodSeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: http
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 2
         securityContext:
           runAsNonRoot: true
           runAsUser: 1000
@@ -76,9 +60,15 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
+        - name: certs
+          mountPath: /app/assets/certs
       volumes:
       - name: tmp
         emptyDir: {}
+      - name: certs
+        hostPath:
+          path: /home/orangepi/trustmebro/certs
+          type: DirectoryOrCreate
       securityContext:
         fsGroup: 1000
 ---

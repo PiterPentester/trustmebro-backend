@@ -219,9 +219,13 @@ class TrustMeBroCertificate:
             canvas.rect(margin, margin, A4[1] - 2 * margin, A4[0] - 2 * margin)
             canvas.restoreState()
 
+        # ensure output directory exists
+        output_dir = "assets/certs"
+        os.makedirs(output_dir, exist_ok=True)
+
         # Create PDF document in landscape
         doc = SimpleDocTemplate(
-            f"assets/certs/{cert_num}.pdf",
+            f"{output_dir}/{cert_num}.pdf",
             pagesize=(A4[1], A4[0]),
             rightMargin=2 * cm,
             leftMargin=2 * cm,
