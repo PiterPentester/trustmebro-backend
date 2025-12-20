@@ -12,12 +12,49 @@ from reportlab.lib.units import cm, mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 
 class TrustMeBroCertificate:
     def __init__(self, redis_url, app_url):
         self.redis_url = redis_url
         self.app_url = app_url
+        # Register font
+        self.font_path = "assets/fonts/Roboto-Regular.ttf"
+        if os.path.exists(self.font_path):
+            pdfmetrics.registerFont(TTFont('Roboto', self.font_path))
+            self.font_name = 'Roboto'
+        else:
+            self.font_name = 'Helvetica'
+
+        self.translations = {
+            'en': {
+                'achievement_title': 'Certificate of Achievement',
+                'achievement_helper': 'has successfully',
+                'completion_title': 'Certificate of Completion',
+                'completion_helper': 'has completed',
+                'ownership_title': 'Certificate of Ownership',
+                'ownership_helper': 'is the owner of',
+                'certifies': 'This certifies that',
+                'issued_on': 'Issued on',
+                'validation_number': 'Certificate Validation Number',
+                'months': ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+            },
+            'uk': {
+                'achievement_title': 'Сертифікат досягнення',
+                'achievement_helper': 'успішно',
+                'completion_title': 'Сертифікат про завершення',
+                'completion_helper': 'успішно завершив(ла)',
+                'ownership_title': 'Сертифікат власності',
+                'ownership_helper': 'є власником',
+                'certifies': 'Цим засвідчується, що',
+                'issued_on': 'Видано',
+                'validation_number': 'Номер валідації сертифіката',
+                'months': ['Січня', 'Лютого', 'Березня', 'Квітня', 'Травня', 'Червня', 'Липня', 'Серпня', 'Вересня', 'Жовтня', 'Листопада', 'Грудня']
+
+            }
+        }
 
     def select_random_image(self, items):
         """
@@ -27,7 +64,13 @@ class TrustMeBroCertificate:
             str: The path to the selected image.
         """
         items_dir = f"assets/{items}"
+        # Ensure directory exists before listing
+        if not os.path.exists(items_dir):
+            return None
+            
         items = [f for f in os.listdir(items_dir) if f.endswith(".png")]
+        if not items:
+            return None
         return os.path.join(items_dir, random.choice(items))
 
     def generate_validation_number(self, recipient_name, item_to_prove):
@@ -57,22 +100,35 @@ class TrustMeBroCertificate:
         """
         return f"{self.app_url}/validate/{validation_number}"
 
-    def generate_cert_data(self, cert_type):
+    def get_translation(self, key, lang='en'):
+        return self.translations.get(lang, self.translations['en']).get(key, key)
+
+    def generate_cert_data(self, cert_type, lang='en'):
+        t = self.translations.get(lang, self.translations['en'])
         match cert_type.lower():
             case "achievement":
-                title = "Certificate of Achievement"
-                helper = "has successfully"
+                title = t['achievement_title']
+                helper = t['achievement_helper']
             case "completion":
-                title = "Certificate of Completion"
-                helper = "has completed"
+                title = t['completion_title']
+                helper = t['completion_helper']
             case "ownership":
-                title = "Certificate of Ownership"
-                helper = "is the owner of"
+                title = t['ownership_title']
+                helper = t['ownership_helper']
             case _:
                 raise ValueError("Invalid cert type")
         return title, helper
 
-    def create_certificate(self, cert_type, recipient_name, item_to_prove):
+    def format_date(self, lang='en'):
+        now = datetime.datetime.now()
+        if lang == 'uk':
+             # uk format: 15 Травня 2024
+             month = self.translations['uk']['months'][now.month - 1]
+             return f"{now.day} {month} {now.year}"
+        else:
+            return now.strftime("%B %d, %Y")
+
+    def create_certificate(self, cert_type, recipient_name, item_to_prove, lang='en'):
         """
         Generate a PDF certificate of achievement with a QR code and logo.
 
@@ -88,6 +144,7 @@ class TrustMeBroCertificate:
         title_style = ParagraphStyle(
             "TitleStyle",
             parent=styles["Heading1"],
+            fontName=self.font_name,
             fontSize=28,
             leading=32,
             alignment=TA_CENTER,
@@ -98,6 +155,7 @@ class TrustMeBroCertificate:
         subtitle_style = ParagraphStyle(
             "SubtitleStyle",
             parent=styles["Normal"],
+            fontName=self.font_name,
             fontSize=18,
             leading=22,
             alignment=TA_CENTER,
@@ -108,15 +166,27 @@ class TrustMeBroCertificate:
         body_style = ParagraphStyle(
             "BodyStyle",
             parent=styles["Normal"],
+            fontName=self.font_name,
             fontSize=14,
             leading=18,
             alignment=TA_CENTER,
             spaceAfter=0.3 * cm,
         )
 
+        bottom_style = ParagraphStyle(
+            "BottomStyle",
+            parent=styles["Normal"],
+            fontName=self.font_name,
+            fontSize=10,
+            leading=12,
+            alignment=TA_LEFT, # Will be handled by table alignment
+        )
+
+
         signature_style = ParagraphStyle(
             "SignatureStyle",
             parent=styles["Normal"],
+            fontName=self.font_name,
             fontSize=12,
             leading=14,
             alignment=TA_LEFT,
@@ -126,44 +196,52 @@ class TrustMeBroCertificate:
         elements = []
 
         # Add logo
-        try:
-            logo_img = self.select_random_image("badges")
-            logo = Image(logo_img, width=3 * cm, height=3 * cm)
-            logo.hAlign = "CENTER"
-            elements.append(logo)
-            elements.append(Spacer(1, 0.5 * cm))
-        except FileNotFoundError:
-            # If no logo, add extra space
+        logo_img = self.select_random_image("badges")
+        if logo_img:
+            try:
+                logo = Image(logo_img, width=3 * cm, height=3 * cm)
+                logo.hAlign = "CENTER"
+                elements.append(logo)
+                elements.append(Spacer(1, 0.5 * cm))
+            except Exception:
+                 elements.append(Spacer(1, 1 * cm))
+        else:
             elements.append(Spacer(1, 1 * cm))
 
         # Certificate title
-        title, helper = self.generate_cert_data(cert_type)
+        title, helper = self.generate_cert_data(cert_type, lang)
         elements.append(Paragraph(title, title_style))
         elements.append(Spacer(1, 0.5 * cm))
 
         # Recipient and course details
-        elements.append(Paragraph("This certifies that", subtitle_style))
+        certifies_text = self.get_translation('certifies', lang)
+        elements.append(Paragraph(certifies_text, subtitle_style))
         elements.append(Paragraph(recipient_name, title_style))
         # Certificate body type
         elements.append(Paragraph(helper, body_style))
         elements.append(Paragraph(item_to_prove, subtitle_style))
         elements.append(Spacer(1, 0.5 * cm))
-        issued_on = datetime.datetime.now().strftime("%B %d, %Y")
-        elements.append(Paragraph(f"Issued on {issued_on}", body_style))
+        
+        issued_text = self.get_translation('issued_on', lang)
+        issued_date = self.format_date(lang)
+        elements.append(Paragraph(f"{issued_text} {issued_date}", body_style))
         elements.append(Spacer(1, 0.5 * cm))
 
         # Add Signature
         signature_img = self.select_random_image("signatures")
-        signature = Image(signature_img, width=(65.5 * 2) * mm, height=(5.7 * 2) * mm)
-        elements.append(signature)
-        signature.hAlign = "LEFT"
+        if signature_img:
+            signature = Image(signature_img, width=(65.5 * 2) * mm, height=(5.7 * 2) * mm)
+            elements.append(signature)
+            signature.hAlign = "LEFT"
+        
         signature_title = Paragraph("CEO of TrustMeBro " + "_" * 25, signature_style)
         # signature_title.hAlign = 'LEFT'
         elements.append(signature_title)
 
         # Add cert validation number
         cert_num = self.generate_validation_number(recipient_name, item_to_prove)
-        validate = Paragraph(f"Certificate Validation Number: {cert_num}", body_style)
+        val_num_text = self.get_translation('validation_number', lang)
+        validate = Paragraph(f"{val_num_text}: {cert_num}", bottom_style)
 
         # Store cert data in Redis database
         redis_client = redis.Redis(host=self.redis_url, port=6379, db=0)
@@ -171,7 +249,8 @@ class TrustMeBroCertificate:
             "recipient_name": recipient_name,
             "cert_type": cert_type,
             "item_to_prove": item_to_prove,
-            "issued_on": issued_on,
+            "issued_on": f"{issued_text} {issued_date}",
+            "language": lang
         }
         redis_client.set(
             cert_num, json.dumps(cert_validation_data), ex=60 * 60 * 24 * 30 * 12
@@ -205,6 +284,8 @@ class TrustMeBroCertificate:
             [
                 ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
                 ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
             ]
         )
         # elements.append(Spacer(1, 1*cm))

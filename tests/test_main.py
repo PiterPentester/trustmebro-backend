@@ -44,7 +44,7 @@ def test_generate_certificate(mock_cert_generator):
     assert response.status_code == 200
     assert response.json() == {"validation_number": "12345"}
     mock_cert_generator.create_certificate.assert_called_once_with(
-        "achievement", "Test User", "Test Item"
+        "achievement", "Test User", "Test Item", "en"
     )
 
 
