@@ -35,6 +35,7 @@ class Certificate(BaseModel):
     cert_type: str
     recipient: str
     item_to_prove: str
+    language: str = "en"
 
     model_config = {
         "json_schema_extra": {
@@ -43,11 +44,13 @@ class Certificate(BaseModel):
                     "cert_type": "achievement",
                     "recipient": "John Doe",
                     "item_to_prove": "killed the Dead Sea",
+                    "language": "en"
                 },
                 {
                     "cert_type": "completion",
                     "recipient": "John Doe",
                     "item_to_prove": "endless lessons",
+                    "language": "uk"
                 },
                 {
                     "cert_type": "ownership",
@@ -97,14 +100,14 @@ async def generate_certificate(data: Certificate):
     Generate a new certificate.
 
     Args:
-        data: Certificate data including type, recipient, and item to prove
+        data: Certificate data including type, recipient, item to prove, and language
 
     Returns:
         dict: Contains the validation number for the generated certificate
     """
     try:
         validation_number = certificate_generator.create_certificate(
-            data.cert_type, data.recipient, data.item_to_prove
+            data.cert_type, data.recipient, data.item_to_prove, data.language
         )
         return {"validation_number": validation_number}
     except Exception as e:
