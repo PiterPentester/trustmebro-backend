@@ -2,9 +2,9 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "master", "dev" ]
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "master", "dev" ]
   workflow_dispatch:
     inputs:
       push_image:
@@ -62,9 +62,9 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event.inputs.push_image == 'true' || github.ref == 'refs/heads/main' }}
+          push: ${{ github.event.inputs.push_image == 'true' || github.ref == 'refs/heads/master' }}
           tags: |
             ${{ env.REGISTRY }}/piterpentester/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-            ${{ (github.event.inputs.push_image == 'true' || github.ref == 'refs/heads/main') && format('{0}/{1}/{2}:latest', env.REGISTRY, 'piterpentester', env.IMAGE_NAME) || '' }}
+            ${{ (github.event.inputs.push_image == 'true' || github.ref == 'refs/heads/master') && format('{0}/{1}/{2}:latest', env.REGISTRY, 'piterpentester', env.IMAGE_NAME) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
