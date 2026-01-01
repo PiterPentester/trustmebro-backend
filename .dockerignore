@@ -26,3 +26,4 @@ Makefile
 README.md
 bandit-report.json
 grype-report.json
+assets/certs
