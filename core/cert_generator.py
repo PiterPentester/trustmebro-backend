@@ -9,7 +9,7 @@ import hashlib
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm, mm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table
+from reportlab.platypus import BaseDocTemplate, PageTemplate, Frame, FrameBreak, Paragraph, Spacer, Image, Table
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.pdfbase import pdfmetrics
@@ -56,9 +56,13 @@ class TrustMeBroCertificate:
             }
         }
 
-    def select_random_image(self, items):
+    def select_random_image(self, items, prefix=None):
         """
         Select a random PNG image from the `assets/{items}` directory.
+        
+        Args:
+            items (str): The directory name in assets.
+            prefix (str, optional): Filter images starting with this prefix.
 
         Returns:
             str: The path to the selected image.
@@ -68,10 +72,20 @@ class TrustMeBroCertificate:
         if not os.path.exists(items_dir):
             return None
             
-        items = [f for f in os.listdir(items_dir) if f.endswith(".png")]
-        if not items:
+        items_list = [f for f in os.listdir(items_dir) if f.endswith(".png")]
+        
+        if prefix:
+            filtered_items = [f for f in items_list if f.startswith(prefix)]
+            if filtered_items:
+                items_list = filtered_items
+            else:
+                # If filtered list is empty, return None or fallback?
+                # Let's return None to indicate no specific badge found.
+                return None
+
+        if not items_list:
             return None
-        return os.path.join(items_dir, random.choice(items))
+        return os.path.join(items_dir, random.choice(items_list))
 
     def generate_validation_number(self, recipient_name, item_to_prove):
         """
@@ -128,7 +142,7 @@ class TrustMeBroCertificate:
         else:
             return now.strftime("%B %d, %Y")
 
-    def create_certificate(self, cert_type, recipient_name, item_to_prove, lang='en'):
+    def create_certificate(self, cert_type, recipient_name, item_to_prove, lang='en', orientation='landscape'):
         """
         Generate a PDF certificate of achievement with a QR code and logo.
 
@@ -138,6 +152,12 @@ class TrustMeBroCertificate:
             date (str): The date awarded.
             qr_link (str, optional): The URL where the certificate can be verified.
         """
+        
+        # Determine page size based on orientation
+        if orientation == 'portrait':
+            page_width, page_height = A4  # 595.27, 841.89
+        else:
+            page_width, page_height = A4[1], A4[0]  # 841.89, 595.27
 
         # Define styles
         styles = getSampleStyleSheet()
@@ -196,7 +216,12 @@ class TrustMeBroCertificate:
         elements = []
 
         # Add logo
-        logo_img = self.select_random_image("badges")
+        logo_prefix = None
+        check_text = item_to_prove.lower()
+        if "new year" in check_text or "новий рік" in check_text or "нового року" in check_text or "новому році" in check_text:
+            logo_prefix = "new-year"
+
+        logo_img = self.select_random_image("badges", prefix=logo_prefix)
         if logo_img:
             try:
                 logo = Image(logo_img, width=3 * cm, height=3 * cm)
@@ -225,7 +250,9 @@ class TrustMeBroCertificate:
         issued_text = self.get_translation('issued_on', lang)
         issued_date = self.format_date(lang)
         elements.append(Paragraph(f"{issued_text} {issued_date}", body_style))
-        elements.append(Spacer(1, 0.5 * cm))
+        
+        # Push to bottom frame
+        elements.append(FrameBreak())
 
         # Add Signature
         signature_img = self.select_random_image("signatures")
@@ -235,7 +262,6 @@ class TrustMeBroCertificate:
             signature.hAlign = "LEFT"
         
         signature_title = Paragraph("CEO of TrustMeBro " + "_" * 25, signature_style)
-        # signature_title.hAlign = 'LEFT'
         elements.append(signature_title)
 
         # Add cert validation number
@@ -277,9 +303,11 @@ class TrustMeBroCertificate:
         qr_buffer.seek(0)
         qr_size = 2 * cm
         qr_image = Image(qr_buffer, width=qr_size, height=qr_size)
+    
         # Create a table to position the QR code in the bottom-right
         table_data = [[validate, qr_image]]
-        table = Table(table_data, colWidths=[A4[1] - 6 * cm - qr_size, qr_size])
+        # Calculate available width (page width - margins - qr size)
+        table = Table(table_data, colWidths=[page_width - 6 * cm - qr_size, qr_size])
         table.setStyle(
             [
                 ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
@@ -288,7 +316,6 @@ class TrustMeBroCertificate:
                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
             ]
         )
-        # elements.append(Spacer(1, 1*cm))
         elements.append(table)
 
         # Draw border
@@ -297,24 +324,64 @@ class TrustMeBroCertificate:
             canvas.setStrokeColor(colors.darkblue)
             canvas.setLineWidth(3)
             margin = 1.5 * cm
-            canvas.rect(margin, margin, A4[1] - 2 * margin, A4[0] - 2 * margin)
+            # Use doc.pagesize to get current page dimensions
+            w, h = doc.pagesize
+            canvas.rect(margin, margin, w - 2 * margin, h - 2 * margin)
             canvas.restoreState()
 
         # ensure output directory exists
         output_dir = "assets/certs"
         os.makedirs(output_dir, exist_ok=True)
 
-        # Create PDF document in landscape
-        doc = SimpleDocTemplate(
+        # Create PDF document using BaseDocTemplate
+        doc = BaseDocTemplate(
             f"{output_dir}/{cert_num}.pdf",
-            pagesize=(A4[1], A4[0]),
+            pagesize=(page_width, page_height),
             rightMargin=2 * cm,
             leftMargin=2 * cm,
             topMargin=2 * cm,
             bottomMargin=2 * cm,
         )
 
+        # Create Frames
+        
+        # Margins are 2cm all around.
+        # Bottom frame height for signature and QR: allocate 7cm from bottom margin.
+        bottom_frame_height = 7 * cm
+        
+        x_start = 2 * cm
+        frame_width = page_width - 4 * cm
+        
+        # Bottom frame starts at bottom margin
+        bottom_frame_y = 2 * cm
+        
+        # Top frame starts above bottom frame
+        top_frame_y = bottom_frame_y + bottom_frame_height
+        top_frame_height = page_height - 2 * cm - top_frame_y
+        
+        top_frame = Frame(
+            x_start,
+            top_frame_y,
+            frame_width,
+            top_frame_height,
+            id='top_frame',
+            showBoundary=0
+        )
+        
+        bottom_frame = Frame(
+            x_start,
+            bottom_frame_y,
+            frame_width,
+            bottom_frame_height,
+            id='bottom_frame',
+            showBoundary=0
+        )
+        
+        # Add Page Template
+        template = PageTemplate(id='cert_template', frames=[top_frame, bottom_frame], onPage=draw_border)
+        doc.addPageTemplates([template])
+
         # Build the PDF
-        doc.build(elements, onFirstPage=draw_border, onLaterPages=draw_border)
+        doc.build(elements)
 
         return cert_num
