@@ -18,6 +18,8 @@ The backend service handles certificate data management, PDF generation, and val
 ## ✨ Features
 
 - **Certificate Generation**: Create custom certificates with names, types, and descriptions.
+- **Customizable Layouts**: Choose between landscape and portrait orientations.
+- **Special Badges**: Unlock hidden badges (like New Year themes) with specific keywords.
 - **QR Code Integration**: Embeds scannable validation links directly into the PDF.
 - **PDF Export**: High-quality PDF generation using ReportLab.
 - **Validation API**: Secure endpoints to verify certificate authenticity.
@@ -129,5 +131,6 @@ This project is licensed under the MIT License.
 
 <div align="center">
 <a href="https://www.flaticon.com/free-icons/ribbon" title="ribbon icons">Ribbon icons created by cube29 - Flaticon</a> | 
-<a href="https://www.flaticon.com/free-icons/certified" title="certified icons">Certified icons created by (many people)</a>
+<a href="https://www.flaticon.com/free-icons/certified" title="certified icons">Certified icons created by (many people)</a> |
+<a href="https://www.flaticon.com/free-icons/2026" title="2026 icons">2026 icons created by Freepik - Flaticon</a>
 </div>
