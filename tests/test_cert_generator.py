@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
+from reportlab.lib.pagesizes import A4
 from core.cert_generator import TrustMeBroCertificate
 
 
@@ -9,7 +10,7 @@ class TestTrustMeBroCertificate:
         with patch("core.cert_generator.redis.Redis"):
             return TrustMeBroCertificate("redis://localhost", "http://localhost:8080")
 
-    @patch("core.cert_generator.SimpleDocTemplate")
+    @patch("core.cert_generator.BaseDocTemplate")
     @patch("core.cert_generator.Image")
     @patch("core.cert_generator.redis.Redis")
     def test_create_certificate(
@@ -51,6 +52,58 @@ class TestTrustMeBroCertificate:
         # Verify PDF generation
         mock_doc_template.assert_called_once()
         mock_doc.build.assert_called_once()
+
+    @patch("core.cert_generator.BaseDocTemplate")
+    @patch("core.cert_generator.Image")
+    @patch("core.cert_generator.redis.Redis")
+    def test_create_certificate_portrait(
+        self, mock_redis_cls, mock_image_cls, mock_doc_template, cert_generator
+    ):
+        mock_redis_cls.return_value = Mock()
+        mock_doc_template.return_value = MagicMock()
+        mock_image_cls.return_value = MagicMock()
+
+        with (
+            patch("os.listdir", return_value=["logo.png"]),
+            patch("random.choice", return_value="logo.png"),
+            patch("os.path.join", return_value="assets/badges/logo.png"),
+        ):
+            cert_generator.create_certificate(
+                "achievement", "User", "Item", orientation="portrait"
+            )
+
+        # Check that pagesize corresponds to A4 (Portrait)
+        # A4 is (595.27, 841.89)
+        call_args = mock_doc_template.call_args
+        assert call_args is not None
+        _, kwargs = call_args
+        assert kwargs["pagesize"] == A4
+
+    @patch("core.cert_generator.BaseDocTemplate")
+    @patch("core.cert_generator.Image")
+    @patch("core.cert_generator.redis.Redis")
+    def test_create_certificate_landscape(
+        self, mock_redis_cls, mock_image_cls, mock_doc_template, cert_generator
+    ):
+        mock_redis_cls.return_value = Mock()
+        mock_doc_template.return_value = MagicMock()
+        mock_image_cls.return_value = MagicMock()
+
+        with (
+            patch("os.listdir", return_value=["logo.png"]),
+            patch("random.choice", return_value="logo.png"),
+            patch("os.path.join", return_value="assets/badges/logo.png"),
+        ):
+            cert_generator.create_certificate(
+                "achievement", "User", "Item", orientation="landscape"
+            )
+
+        # Check that pagesize corresponds to Landscape A4
+        # Landscape A4 is (841.89, 595.27) aka (A4[1], A4[0])
+        call_args = mock_doc_template.call_args
+        assert call_args is not None
+        _, kwargs = call_args
+        assert kwargs["pagesize"] == (A4[1], A4[0])
 
     def test_generate_validation_number(self, cert_generator):
         number = cert_generator.generate_validation_number("User", "Item")

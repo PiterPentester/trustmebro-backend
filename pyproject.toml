@@ -1,6 +1,6 @@
 [project]
 name = "trustmebro-backend"
-version = "0.4.1"
+version = "0.4.2"
 description = "Generate a PDF certificate to prove anything with a QR code validation."
 readme = "README.md"
 requires-python = ">=3.12"

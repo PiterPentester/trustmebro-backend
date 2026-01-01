@@ -44,7 +44,26 @@ def test_generate_certificate(mock_cert_generator):
     assert response.status_code == 200
     assert response.json() == {"validation_number": "12345"}
     mock_cert_generator.create_certificate.assert_called_once_with(
-        "achievement", "Test User", "Test Item", "en"
+        "achievement", "Test User", "Test Item", "en", "landscape"
+    )
+
+
+def test_generate_certificate_with_orientation(mock_cert_generator):
+    mock_cert_generator.create_certificate.return_value = "12345"
+
+    payload = {
+        "cert_type": "achievement",
+        "recipient": "Test User",
+        "item_to_prove": "Test Item",
+        "orientation": "portrait"
+    }
+
+    response = client.post("/api/generate", json=payload)
+
+    assert response.status_code == 200
+    assert response.json() == {"validation_number": "12345"}
+    mock_cert_generator.create_certificate.assert_called_once_with(
+        "achievement", "Test User", "Test Item", "en", "portrait"
     )
 
 
