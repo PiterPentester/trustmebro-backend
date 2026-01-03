@@ -172,6 +172,14 @@ async def validate_certificate(cert_validation_number: str):
         )
 
 
+@router.get("/version")
+async def get_version():
+    """
+    Get the version of the backend application.
+    """
+    return {"version": os.environ.get("APP_VERSION", "unknown")}
+
+
 app.include_router(router)
 
 

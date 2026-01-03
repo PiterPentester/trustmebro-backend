@@ -149,8 +149,8 @@ class TrustMeBroCertificate:
         Args:
             recipient_name (str): The recipient's name.
             item_to_prove (str): The item to prove.
-            date (str): The date awarded.
-            qr_link (str, optional): The URL where the certificate can be verified.
+            lang (str): Language code.
+            orientation (str): Page orientation.
         """
         
         # Determine page size based on orientation
@@ -159,134 +159,174 @@ class TrustMeBroCertificate:
         else:
             page_width, page_height = A4[1], A4[0]  # 841.89, 595.27
 
-        # Define styles
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            "TitleStyle",
-            parent=styles["Heading1"],
-            fontName=self.font_name,
-            fontSize=28,
-            leading=32,
-            alignment=TA_CENTER,
-            spaceAfter=0.5 * cm,
-            textColor=colors.darkblue,
-        )
+        # Margins are 2cm all around.
+        # Bottom frame height for signature and QR: allocate 7cm from bottom margin.
+        bottom_frame_height = 7 * cm
+        
+        x_start = 2 * cm
+        frame_width = page_width - 4 * cm
+        
+        # Bottom frame starts at bottom margin
+        bottom_frame_y = 2 * cm
+        
+        # Top frame starts above bottom frame
+        top_frame_y = bottom_frame_y + bottom_frame_height
+        
+        # Calculate available height for top frame
+        # We need to ensure we don't overlap with the top margin (2cm)
+        top_frame_height = page_height - 2 * cm - top_frame_y
 
-        subtitle_style = ParagraphStyle(
-            "SubtitleStyle",
-            parent=styles["Normal"],
-            fontName=self.font_name,
-            fontSize=18,
-            leading=22,
-            alignment=TA_CENTER,
-            spaceAfter=0.4 * cm,
-            textColor=colors.black,
-        )
+        # Prepare static content helpers
+        logo_prefix = None
+        check_text = item_to_prove.lower()
+        if "new year" in check_text or "новий рік" in check_text or "нового року" in check_text or "новому році" in check_text:
+            logo_prefix = "new-year"
+        logo_img_path = self.select_random_image("badges", prefix=logo_prefix)
+        
+        title_text, helper_text = self.generate_cert_data(cert_type, lang)
+        certifies_text = self.get_translation('certifies', lang)
+        issued_text = self.get_translation('issued_on', lang)
+        issued_date = self.format_date(lang)
+        final_issued_str = f"{issued_text} {issued_date}"
 
-        body_style = ParagraphStyle(
-            "BodyStyle",
-            parent=styles["Normal"],
-            fontName=self.font_name,
-            fontSize=14,
-            leading=18,
-            alignment=TA_CENTER,
-            spaceAfter=0.3 * cm,
-        )
+        # Function to generate top elements given a scale
+        def create_top_elements(scale):
+            # Define scaled styles
+            scaled_styles = getSampleStyleSheet()
+            
+            # Helper to create styled paragraph
+            def create_style(name, parent, fontSize, leading, spaceAfter, color=colors.black):
+                return ParagraphStyle(
+                    name,
+                    parent=scaled_styles[parent],
+                    fontName=self.font_name,
+                    fontSize=fontSize * scale,
+                    leading=leading * scale,
+                    alignment=TA_CENTER,
+                    spaceAfter=spaceAfter * scale,
+                    textColor=color
+                )
 
-        bottom_style = ParagraphStyle(
-            "BottomStyle",
-            parent=styles["Normal"],
-            fontName=self.font_name,
-            fontSize=10,
-            leading=12,
-            alignment=TA_LEFT, # Will be handled by table alignment
-        )
+            title_style = create_style("TitleStyle", "Heading1", 28, 32, 0.5 * cm, colors.darkblue)
+            subtitle_style = create_style("SubtitleStyle", "Normal", 18, 22, 0.4 * cm)
+            body_style = create_style("BodyStyle", "Normal", 14, 18, 0.3 * cm)
+            
+            local_elements = []
 
+            # Add logo
+            # Keep logo size fixed mostly, unless scale is very small
+            logo_size = 3 * cm * (scale if scale < 0.8 else 1.0)
+            
+            if logo_img_path:
+                try:
+                    logo = Image(logo_img_path, width=logo_size, height=logo_size)
+                    logo.hAlign = "CENTER"
+                    local_elements.append(logo)
+                    local_elements.append(Spacer(1, 0.5 * cm * scale))
+                except Exception:
+                     local_elements.append(Spacer(1, 1 * cm * scale))
+            else:
+                local_elements.append(Spacer(1, 1 * cm * scale))
 
+            # Title
+            local_elements.append(Paragraph(title_text, title_style))
+            local_elements.append(Spacer(1, 0.5 * cm * scale))
+
+            # Recipient
+            local_elements.append(Paragraph(certifies_text, subtitle_style))
+            local_elements.append(Paragraph(recipient_name, title_style))
+            
+            # Body
+            local_elements.append(Paragraph(helper_text, body_style))
+            local_elements.append(Paragraph(item_to_prove, subtitle_style))
+            local_elements.append(Spacer(1, 0.5 * cm * scale))
+            
+            # Issued
+            local_elements.append(Paragraph(final_issued_str, body_style))
+            
+            return local_elements
+
+        # Iterative verification to fit top frame
+        best_elements = []
+        current_scale = 1.0
+        min_scale = 0.5
+        
+        while current_scale >= min_scale:
+            params = create_top_elements(current_scale)
+            
+            # Calculate total height
+            total_h = 0
+            for e in params:
+                w, h = e.wrap(frame_width, page_height)
+                space = 0
+                if hasattr(e, 'getSpaceAfter'):
+                    space = e.getSpaceAfter()
+                total_h += h + space
+            
+            if total_h <= top_frame_height:
+                best_elements = params
+                break
+            
+            current_scale -= 0.05
+        
+        # If still doesn't fit after loop (scale < min_scale), use min_scale elements
+        if not best_elements:
+            best_elements = create_top_elements(min_scale)
+
+        # Build final elements list
+        elements = []
+        elements.extend(best_elements)
+        elements.append(FrameBreak())
+        
+        # Bottom elements (Signature, QR)
         signature_style = ParagraphStyle(
             "SignatureStyle",
-            parent=styles["Normal"],
+            parent=getSampleStyleSheet()["Normal"],
             fontName=self.font_name,
             fontSize=12,
             leading=14,
             alignment=TA_LEFT,
         )
-
-        # Content elements
-        elements = []
-
-        # Add logo
-        logo_prefix = None
-        check_text = item_to_prove.lower()
-        if "new year" in check_text or "новий рік" in check_text or "нового року" in check_text or "новому році" in check_text:
-            logo_prefix = "new-year"
-
-        logo_img = self.select_random_image("badges", prefix=logo_prefix)
-        if logo_img:
-            try:
-                logo = Image(logo_img, width=3 * cm, height=3 * cm)
-                logo.hAlign = "CENTER"
-                elements.append(logo)
-                elements.append(Spacer(1, 0.5 * cm))
-            except Exception:
-                 elements.append(Spacer(1, 1 * cm))
-        else:
-            elements.append(Spacer(1, 1 * cm))
-
-        # Certificate title
-        title, helper = self.generate_cert_data(cert_type, lang)
-        elements.append(Paragraph(title, title_style))
-        elements.append(Spacer(1, 0.5 * cm))
-
-        # Recipient and course details
-        certifies_text = self.get_translation('certifies', lang)
-        elements.append(Paragraph(certifies_text, subtitle_style))
-        elements.append(Paragraph(recipient_name, title_style))
-        # Certificate body type
-        elements.append(Paragraph(helper, body_style))
-        elements.append(Paragraph(item_to_prove, subtitle_style))
-        elements.append(Spacer(1, 0.5 * cm))
-        
-        issued_text = self.get_translation('issued_on', lang)
-        issued_date = self.format_date(lang)
-        elements.append(Paragraph(f"{issued_text} {issued_date}", body_style))
-        
-        # Push to bottom frame
-        elements.append(FrameBreak())
-
-        # Add Signature
+         
         signature_img = self.select_random_image("signatures")
         if signature_img:
-            signature = Image(signature_img, width=(65.5 * 2) * mm, height=(5.7 * 2) * mm)
-            elements.append(signature)
-            signature.hAlign = "LEFT"
+            signature_obj = Image(signature_img, width=(65.5 * 2) * mm, height=(5.7 * 2) * mm)
+            signature_obj.hAlign = "LEFT"
+            elements.append(signature_obj)
         
         signature_title = Paragraph("CEO of TrustMeBro " + "_" * 25, signature_style)
         elements.append(signature_title)
 
-        # Add cert validation number
+        # Cert number
         cert_num = self.generate_validation_number(recipient_name, item_to_prove)
         val_num_text = self.get_translation('validation_number', lang)
-        validate = Paragraph(f"{val_num_text}: {cert_num}", bottom_style)
+        
+        bottom_style_text = ParagraphStyle(
+            "BottomStyle",
+            parent=getSampleStyleSheet()["Normal"],
+            fontName=self.font_name,
+            fontSize=10,
+            leading=12,
+            alignment=TA_LEFT, 
+        )
+        
+        validate = Paragraph(f"{val_num_text}: {cert_num}", bottom_style_text)
 
-        # Store cert data in Redis database
+        # Store in Redis
         redis_client = redis.Redis(host=self.redis_url, port=6379, db=0)
         cert_validation_data = {
             "recipient_name": recipient_name,
             "cert_type": cert_type,
             "item_to_prove": item_to_prove,
-            "issued_on": f"{issued_text} {issued_date}",
+            "issued_on": final_issued_str,
             "language": lang
         }
         redis_client.set(
             cert_num, json.dumps(cert_validation_data), ex=60 * 60 * 24 * 30 * 12
-        )  # valid for ~1 year (in seconds)
+        )
 
-        # Add QR code link
+        # QR Code
         qr_link = self.generate_qr_link(cert_num)
-
-        # Add QR code in bottom-right corner using a Table for positioning
-        # Create QR code
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -295,18 +335,14 @@ class TrustMeBroCertificate:
         )
         qr.add_data(qr_link)
         qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-
-        # Save QR code to a BytesIO buffer
+        qr_img_obj = qr.make_image(fill_color="black", back_color="white")
         qr_buffer = io.BytesIO()
-        qr_img.save(qr_buffer, format="PNG")
+        qr_img_obj.save(qr_buffer, format="PNG")
         qr_buffer.seek(0)
         qr_size = 2 * cm
         qr_image = Image(qr_buffer, width=qr_size, height=qr_size)
-    
-        # Create a table to position the QR code in the bottom-right
+
         table_data = [[validate, qr_image]]
-        # Calculate available width (page width - margins - qr size)
         table = Table(table_data, colWidths=[page_width - 6 * cm - qr_size, qr_size])
         table.setStyle(
             [
@@ -324,16 +360,14 @@ class TrustMeBroCertificate:
             canvas.setStrokeColor(colors.darkblue)
             canvas.setLineWidth(3)
             margin = 1.5 * cm
-            # Use doc.pagesize to get current page dimensions
             w, h = doc.pagesize
             canvas.rect(margin, margin, w - 2 * margin, h - 2 * margin)
             canvas.restoreState()
 
-        # ensure output directory exists
+        # Output
         output_dir = "assets/certs"
         os.makedirs(output_dir, exist_ok=True)
 
-        # Create PDF document using BaseDocTemplate
         doc = BaseDocTemplate(
             f"{output_dir}/{cert_num}.pdf",
             pagesize=(page_width, page_height),
@@ -343,22 +377,6 @@ class TrustMeBroCertificate:
             bottomMargin=2 * cm,
         )
 
-        # Create Frames
-        
-        # Margins are 2cm all around.
-        # Bottom frame height for signature and QR: allocate 7cm from bottom margin.
-        bottom_frame_height = 7 * cm
-        
-        x_start = 2 * cm
-        frame_width = page_width - 4 * cm
-        
-        # Bottom frame starts at bottom margin
-        bottom_frame_y = 2 * cm
-        
-        # Top frame starts above bottom frame
-        top_frame_y = bottom_frame_y + bottom_frame_height
-        top_frame_height = page_height - 2 * cm - top_frame_y
-        
         top_frame = Frame(
             x_start,
             top_frame_y,
@@ -377,11 +395,9 @@ class TrustMeBroCertificate:
             showBoundary=0
         )
         
-        # Add Page Template
         template = PageTemplate(id='cert_template', frames=[top_frame, bottom_frame], onPage=draw_border)
         doc.addPageTemplates([template])
-
-        # Build the PDF
+        
         doc.build(elements)
 
         return cert_num
