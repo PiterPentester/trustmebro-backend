@@ -27,6 +27,9 @@ class TestTrustMeBroCertificate:
         # Mock Image
         mock_image_instance = MagicMock()
         mock_image_cls.return_value = mock_image_instance
+        # Configure Image mock for wrapping calculation
+        mock_image_instance.wrap.return_value = (100, 100)
+        mock_image_instance.getSpaceAfter.return_value = 0
 
         # Test data
         cert_type = "achievement"
@@ -61,7 +64,10 @@ class TestTrustMeBroCertificate:
     ):
         mock_redis_cls.return_value = Mock()
         mock_doc_template.return_value = MagicMock()
-        mock_image_cls.return_value = MagicMock()
+        mock_image_instance = MagicMock()
+        mock_image_cls.return_value = mock_image_instance
+        mock_image_instance.wrap.return_value = (100, 100)
+        mock_image_instance.getSpaceAfter.return_value = 0
 
         with (
             patch("os.listdir", return_value=["logo.png"]),
@@ -87,7 +93,10 @@ class TestTrustMeBroCertificate:
     ):
         mock_redis_cls.return_value = Mock()
         mock_doc_template.return_value = MagicMock()
-        mock_image_cls.return_value = MagicMock()
+        mock_image_instance = MagicMock()
+        mock_image_cls.return_value = mock_image_instance
+        mock_image_instance.wrap.return_value = (100, 100)
+        mock_image_instance.getSpaceAfter.return_value = 0
 
         with (
             patch("os.listdir", return_value=["logo.png"]),
