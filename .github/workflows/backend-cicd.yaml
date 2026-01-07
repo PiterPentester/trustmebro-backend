@@ -79,7 +79,7 @@ jobs:
         run: |
           cd k8s
           sed -i 's|image: ghcr.io/piterpentester/${{ env.IMAGE_NAME }}:.*|image: ghcr.io/piterpentester/${{ env.IMAGE_NAME }}:${{ steps.slug.outputs.sha8 }}|' backend-deployment.yaml
-          sed -i 's|value: "latest"|value: "${{ steps.slug.outputs.sha8 }}"|' backend-deployment.yaml
+          sed -i '/name: APP_VERSION/{n;s|value: ".*"|value: "${{ steps.slug.outputs.sha8 }}"|;}' backend-deployment.yaml
           
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
