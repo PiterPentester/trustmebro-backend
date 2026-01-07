@@ -21,12 +21,16 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: slug
+        run: echo "sha8=$(echo ${GITHUB_SHA} | cut -c1-8)" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -57,6 +61,7 @@ jobs:
           make test
 
       - name: Build and push Docker image
+        id: push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -64,7 +69,20 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event.inputs.push_image == 'true' || github.ref == 'refs/heads/master' }}
           tags: |
-            ${{ env.REGISTRY }}/piterpentester/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/piterpentester/${{ env.IMAGE_NAME }}:${{ steps.slug.outputs.sha8 }}
             ${{ (github.event.inputs.push_image == 'true' || github.ref == 'refs/heads/master') && format('{0}/{1}/{2}:latest', env.REGISTRY, 'piterpentester', env.IMAGE_NAME) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Update Kubernetes resources
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        run: |
+          cd k8s
+          sed -i 's|image: ghcr.io/piterpentester/${{ env.IMAGE_NAME }}:.*|image: ghcr.io/piterpentester/${{ env.IMAGE_NAME }}:${{ steps.slug.outputs.sha8 }}|' backend-deployment.yaml
+          sed -i 's|value: "latest"|value: "${{ steps.slug.outputs.sha8 }}"|' backend-deployment.yaml
+          
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add backend-deployment.yaml
+          git commit -m "Update backend image tag to ${{ steps.slug.outputs.sha8 }} [skip ci]"
+          git push
