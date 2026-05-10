@@ -1,4 +1,4 @@
-.PHONY: help format lint scan-security build scan-image push run-compose stop-compose clean all
+.PHONY: help format lint scan-security build scan-image push run-compose stop-compose clean all setup-pre-commit
 
 # Variables
 IMAGE_NAME := trustmebro-backend
@@ -9,16 +9,18 @@ FULL_IMAGE_NAME := $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  format         - Format code using ruff"
-	@echo "  lint           - Lint code using ruff"
-	@echo "  scan-security  - Scan code for security issues using bandit"
-	@echo "  build          - Build Docker image"
-	@echo "  scan-image     - Scan Docker image for vulnerabilities using grype"
-	@echo "  push           - Push Docker image to registry"
-	@echo "  run-compose    - Run application using docker-compose"
-	@echo "  stop-compose   - Stop docker-compose services"
-	@echo "  clean          - Clean up generated files and containers"
-	@echo "  all            - Run format, lint, scan-security, build, and scan-image"
+	@echo "  format           - Format code using ruff"
+	@echo "  lint             - Lint code using ruff"
+	@echo "  scan-security    - Scan code for security issues using bandit"
+	@echo "  test             - Run tests using pytest"
+	@echo "  setup-pre-commit - Install pre-commit hooks"
+	@echo "  build            - Build Docker image"
+	@echo "  scan-image       - Scan Docker image for vulnerabilities using grype"
+	@echo "  push             - Push Docker image to registry"
+	@echo "  run-compose      - Run application using docker-compose"
+	@echo "  stop-compose     - Stop docker-compose services"
+	@echo "  clean            - Clean up generated files and containers"
+	@echo "  all              - Run format, lint, scan-security, build, and scan-image"
 
 # Format code using ruff
 format:
@@ -95,6 +97,12 @@ undeploy:
 	@echo "Undeploying from Kubernetes..."
 	@kubectl delete -f k8s/
 	@echo "✓ Undeployed from Kubernetes"
+
+# Setup pre-commit hooks
+setup-pre-commit:
+	@echo "Installing pre-commit hooks..."
+	@pre-commit install
+	@echo "✓ Pre-commit hooks installed successfully"
 
 # Run all quality checks and build
 all: format lint scan-security test build scan-image deploy

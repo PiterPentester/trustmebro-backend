@@ -55,7 +55,7 @@ def test_generate_certificate_with_orientation(mock_cert_generator):
         "cert_type": "achievement",
         "recipient": "Test User",
         "item_to_prove": "Test Item",
-        "orientation": "portrait"
+        "orientation": "portrait",
     }
 
     response = client.post("/api/generate", json=payload)

@@ -46,14 +46,14 @@ class Certificate(BaseModel):
                     "recipient": "John Doe",
                     "item_to_prove": "killed the Dead Sea",
                     "language": "en",
-                    "orientation": "landscape"
+                    "orientation": "landscape",
                 },
                 {
                     "cert_type": "completion",
                     "recipient": "John Doe",
                     "item_to_prove": "endless lessons",
                     "language": "uk",
-                    "orientation": "portrait"
+                    "orientation": "portrait",
                 },
                 {
                     "cert_type": "ownership",
@@ -110,7 +110,11 @@ async def generate_certificate(data: Certificate):
     """
     try:
         validation_number = certificate_generator.create_certificate(
-            data.cert_type, data.recipient, data.item_to_prove, data.language, data.orientation
+            data.cert_type,
+            data.recipient,
+            data.item_to_prove,
+            data.language,
+            data.orientation,
         )
         return {"validation_number": validation_number}
     except Exception as e:

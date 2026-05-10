@@ -30,6 +30,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+PR.md
 
 # Testing
 .pytest_cache/
@@ -47,6 +48,7 @@ htmlcov/
 .vscode/
 .idea/
 .DS_Store
+*.code-workspace
 
 # Project Specific
 bandit-report.json
