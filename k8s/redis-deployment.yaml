@@ -32,7 +32,7 @@ spec:
         command:
         - redis-server
         - "--appendonly"
-        - "yes"
+        - "no"
         - "--appendfsync"
         - "everysec"
         resources:
