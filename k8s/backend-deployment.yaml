@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: ghcr.io/piterpentester/trustmebro-backend:1eb1f6f9
+        image: ghcr.io/piterpentester/trustmebro-backend:448e1c63
         imagePullPolicy: Always
         ports:
         - name: http
@@ -43,7 +43,7 @@ spec:
         - name: ENVIRONMENT
           value: "production"
         - name: APP_VERSION
-          value: "1eb1f6f9"
+          value: "448e1c63"
         resources:
           requests:
             cpu: "100m"
